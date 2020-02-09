@@ -4,9 +4,21 @@ import traceback
 
 from env import DOCUMENT_ROOT
 
+STATUS_OK = 200
+STATUS_NOT_FOUND = 404
+STATUS_INTERNAL_SERVER_ERROR = 500
 
-def get_header(ext: str) -> str:
-    header = "HTTP/1.1 200 OK\n"
+HTTP_STATUS_MESSAGE = {
+    STATUS_OK: "OK.",
+    STATUS_NOT_FOUND: "File Not Found.",
+    STATUS_INTERNAL_SERVER_ERROR: "Internal Server Error."
+}
+
+NOT_FOUND_FILE = '/404.html'
+
+
+def get_header(status: int, ext: str) -> str:
+    header = get_header_status(status) + "\n"
     header += "Date: " + datetime.datetime.utcnow().strftime(
         "%a, %d %b %Y %H:%M:%S GMT\n"
     )
@@ -16,8 +28,10 @@ def get_header(ext: str) -> str:
     header += "\n"
     return header
 
+def get_header_status(status: int) -> str:
+    return f"HTTP/1.1 {str(status)} {HTTP_STATUS_MESSAGE[status]}"
 
-def get_mime_types(ext: str) -> str:
+def get_mime_types(ext: str="") -> str:
     return {
         "txt": "text/plain",
         "html": "text/html",
@@ -50,16 +64,29 @@ def main():
             print("-----------------------------------\n")
 
             path = decoded_recv_msg.splitlines()[0].split(" ")[1]
+            while path.endswith('/'):
+                path = path[:-1]
+            if path == "":
+                path = "/index.html"
             ext = path.split(".")[-1]
 
-            header = get_header(ext)
-            with open(DOCUMENT_ROOT + path, 'br') as f:
-                content = f.read()
+            try:
+                with open(DOCUMENT_ROOT + path, 'br') as f:
+                    content = f.read()
+                status = STATUS_OK
+            except (FileNotFoundError, IsADirectoryError) as e:
+                print(f'file detecting error. path:{path}, error:{e}')
+                with open(DOCUMENT_ROOT + NOT_FOUND_FILE, 'br') as f:
+                    content = f.read()
+                status = STATUS_NOT_FOUND
+
+            header = get_header(status=status, ext=ext)
+
             send_msg = header.encode("utf-8") + content
             client_socket.send(send_msg)
             print("server: send server's messages.")
             print("-----------------------------------\n")
-            print(send_msg.decode())
+            print(header)
             print("-----------------------------------\n")
         except Exception as e:
             print(f"fuck error! error: {e}")
