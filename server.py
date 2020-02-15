@@ -1,6 +1,8 @@
 import datetime
+import os
 import socket
 import traceback
+from urllib import parse
 
 from env import DOCUMENT_ROOT
 
@@ -11,27 +13,29 @@ STATUS_INTERNAL_SERVER_ERROR = 500
 HTTP_STATUS_MESSAGE = {
     STATUS_OK: "OK.",
     STATUS_NOT_FOUND: "File Not Found.",
-    STATUS_INTERNAL_SERVER_ERROR: "Internal Server Error."
+    STATUS_INTERNAL_SERVER_ERROR: "Internal Server Error.",
 }
 
-NOT_FOUND_FILE = '/404.html'
+NOT_FOUND_FILE = "/404.html"
 
 
-def get_header(status: int, ext: str) -> str:
+def get_header(status: int, mime_type: str) -> str:
     header = get_header_status(status) + "\n"
     header += "Date: " + datetime.datetime.utcnow().strftime(
         "%a, %d %b %Y %H:%M:%S GMT\n"
     )
     header += "Server: oreore-web-server v0.1\n"
     header += "Connection: Close\n"
-    header += f"ContentType: {get_mime_types(ext)}\n"
+    header += f"ContentType: {mime_type}\n"
     header += "\n"
     return header
+
 
 def get_header_status(status: int) -> str:
     return f"HTTP/1.1 {str(status)} {HTTP_STATUS_MESSAGE[status]}"
 
-def get_mime_types(ext: str="") -> str:
+
+def get_mime_types(ext: str = "") -> str:
     return {
         "txt": "text/plain",
         "html": "text/html",
@@ -63,24 +67,39 @@ def main():
             print(decoded_recv_msg)
             print("-----------------------------------\n")
 
-            path = decoded_recv_msg.splitlines()[0].split(" ")[1]
-            while path.endswith('/'):
-                path = path[:-1]
-            if path == "":
-                path = "/index.html"
-            ext = path.split(".")[-1]
+            request_path = parse.unquote(decoded_recv_msg.splitlines()[0].split(" ")[1])
+            path = os.path.abspath(DOCUMENT_ROOT + request_path)
 
-            try:
-                with open(DOCUMENT_ROOT + path, 'br') as f:
-                    content = f.read()
-                status = STATUS_OK
-            except (FileNotFoundError, IsADirectoryError) as e:
-                print(f'file detecting error. path:{path}, error:{e}')
-                with open(DOCUMENT_ROOT + NOT_FOUND_FILE, 'br') as f:
+            # ディレクトリトラバーサル対策
+            print(f"request_abs_path: {path}")
+            if not path.startswith(DOCUMENT_ROOT):
+                print(
+                    f"Suspicious! A request could be intended to traverse directory. path: {path}"
+                )
+                with open(DOCUMENT_ROOT + NOT_FOUND_FILE, "br") as f:
                     content = f.read()
                 status = STATUS_NOT_FOUND
+                mime_type = "text/html"
+            else:
+                # pathの正規化（文末のスラッシュを削除し、pathが空の場合はindex.htmlを表示
+                while path.endswith("/"):
+                    path = path[:-1]
+                if path == "":
+                    path = "/index.html"
+                ext = path.split(".")[-1]
+                mime_type = get_mime_types(ext)
 
-            header = get_header(status=status, ext=ext)
+                try:
+                    with open(path, "br") as f:
+                        content = f.read()
+                    status = STATUS_OK
+                except (FileNotFoundError, IsADirectoryError) as e:
+                    print(f"file detecting error. path:{path}, error:{e}")
+                    with open(DOCUMENT_ROOT + NOT_FOUND_FILE, "br") as f:
+                        content = f.read()
+                    status = STATUS_NOT_FOUND
+
+            header = get_header(status=status, mime_type=mime_type)
 
             send_msg = header.encode("utf-8") + content
             client_socket.send(send_msg)
