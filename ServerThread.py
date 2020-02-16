@@ -1,53 +1,58 @@
 import datetime
+import logging
 import os
+import re
+import textwrap
 import threading
 import traceback
 from socket import socket
+from typing import List, Tuple, NoReturn, Dict
 from urllib import parse
 
-from consts import NOT_FOUND_FILE, STATUS_NOT_FOUND, STATUS_OK, HTTP_STATUS_MESSAGE
-from env import DOCUMENT_ROOT
+from consts import (
+    NOT_FOUND_DOCUMENT,
+    STATUS_NOT_FOUND,
+    STATUS_OK,
+    HTTP_STATUS_MESSAGE,
+    DEFAULT_DOCUMENT,
+)
+from env import DOCUMENT_ROOT, DEBUG
 
 
 class ServerThread(threading.Thread):
-    sequence = 0
+    sequence: int = 0
 
     def __init__(self, client_socket: socket, *args, **kwargs):
-        self.socket = client_socket
-        super().__init__(*args, **kwargs)
-        self.instance_id = ServerThread.sequence
+        if DEBUG:
+            logging.basicConfig(level=logging.DEBUG)
+
+        self.socket: socket = client_socket
+        self.instance_id: int = ServerThread.sequence
         ServerThread.sequence += 1
+        self.request: Dict = {}
+
+        super().__init__(*args, **kwargs)
 
     def run(self) -> None:
         print(f"run thread({self.instance_id})")
         try:
-            recv_msg = self.socket.recv(4096)
-            with open("./server_recv", "bw") as f:
-                f.write(recv_msg)
-            decoded_recv_msg = recv_msg.decode()
-            print(f"server({self.instance_id}): received client's messages.\n")
-            print("-----------------------------------\n")
-            print(decoded_recv_msg)
-            print("-----------------------------------\n")
+            recv_msg = self.receive_msg()
+            self.request = self.parse_request(recv_msg)
+            path = self.normalize_path(self.request["path"])
 
-            request_path = parse.unquote(decoded_recv_msg.splitlines()[0].split(" ")[1])
-            path = os.path.abspath(DOCUMENT_ROOT + request_path)
+            # Application
+            path = self.get_abs_path(path)
 
             # ディレクトリトラバーサル対策
             if not path.startswith(DOCUMENT_ROOT):
-                print(
-                    f"Suspicious! A request could be intended to traverse directory. path: {path}"
+                logging.warning(
+                    f"Suspicious! A request could be intended to traverse directory. path: {abs_path}"
                 )
-                with open(DOCUMENT_ROOT + NOT_FOUND_FILE, "br") as f:
+                with open(DOCUMENT_ROOT + NOT_FOUND_DOCUMENT, "br") as f:
                     content = f.read()
                 status = STATUS_NOT_FOUND
                 mime_type = "text/html"
             else:
-                # pathの正規化（文末のスラッシュを削除し、pathが空の場合はindex.htmlを表示
-                while path.endswith("/"):
-                    path = path[:-1]
-                if path == "":
-                    path = "/index.html"
                 ext = path.split(".")[-1]
                 mime_type = self.get_mime_types(ext)
 
@@ -56,8 +61,8 @@ class ServerThread(threading.Thread):
                         content = f.read()
                     status = STATUS_OK
                 except (FileNotFoundError, IsADirectoryError) as e:
-                    print(f"file detecting error. path:{path}, error:{e}")
-                    with open(DOCUMENT_ROOT + NOT_FOUND_FILE, "br") as f:
+                    logging.info(f"file detecting error. path:{path}, error:{e}")
+                    with open(DOCUMENT_ROOT + NOT_FOUND_DOCUMENT, "br") as f:
                         content = f.read()
                     status = STATUS_NOT_FOUND
 
@@ -65,16 +70,17 @@ class ServerThread(threading.Thread):
 
             send_msg = header.encode("utf-8") + content
             self.socket.send(send_msg)
-            print(f"server({self.instance_id}): send server's messages.")
-            print("-----------------------------------\n")
-            print(header)
-            print("-----------------------------------\n")
+            logging.debug(
+                f"server({self.instance_id}): send server's messages.\n"
+                "-----------------------------------\n"
+                f"{header}\n"
+                "-----------------------------------\n"
+            )
         except Exception as e:
-            print(f"fuck error! error: {e}")
-            traceback.print_exc()
+            logging.exception(f"server({self.instance_id}): fuck error! error: %s", e)
         finally:
             self.socket.close()
-            print(f"server({self.instance_id}): closed.")
+            logging.debug(f"server({self.instance_id}): closed.")
 
     def get_header(self, status: int, mime_type: str) -> str:
         header = self.get_header_status(status) + "\n"
@@ -89,7 +95,7 @@ class ServerThread(threading.Thread):
 
     @staticmethod
     def get_header_status(status: int) -> str:
-        return f"HTTP/1.1 {str(status)} {HTTP_STATUS_MESSAGE[status]}"
+        return f"HTTP/1.1 {HTTP_STATUS_MESSAGE[status]}"
 
     @staticmethod
     def get_mime_types(ext: str = "") -> str:
@@ -102,3 +108,74 @@ class ServerThread(threading.Thread):
             "jpeg": "image/jpeg",
             "gif": "image/gif",
         }.get(ext.lower(), "application/octet-stream")
+
+    def receive_msg(self) -> str:
+        try:
+            recv_msg_raw = self.socket.recv(4096)
+            with open("./server_recv", "bw") as f:
+                f.write(recv_msg_raw)
+            recv_msg_decoded = recv_msg_raw.decode()
+            logging.debug(
+                f"server({self.instance_id}): received client's messages.\n"
+                "-----------------------------------\n"
+                f"{recv_msg_decoded}\n"
+                "-----------------------------------\n"
+            )
+            return recv_msg_decoded
+        except Exception as e:
+            self.log_error(e)
+
+    def log_error(self, e: Exception) -> NoReturn:
+        logging.error(f"server({self.instance_id}): Exception! message: %s", e)
+
+    @staticmethod
+    def parse_request(msg: str) -> Dict:
+        """
+        parse request message and return dict of
+        {
+            "method": http method
+            "path": request path
+            "version": http version
+            "headers": dict of headers
+            "content": request content
+        }
+        """
+        request_line, remain_lines = msg.split("\r\n", 1)
+        header_part, content_part = remain_lines.split("\r\n\r\n", 1)
+
+        method, path, version = request_line.split()
+
+        header_lines = header_part.splitlines()
+        headers = {}
+        for header_line in header_lines:
+            key, value = re.split(r":\S*", header_line, 1)
+            headers[key] = value
+
+        return {
+            "method": method,
+            "path": path,
+            "version": version,
+            "headers": headers,
+            "content": content_part,
+        }
+
+    @staticmethod
+    def get_abs_path(path: str) -> str:
+        """
+        absolute request path from raw request path
+        """
+        return os.path.abspath(DOCUMENT_ROOT + path)
+
+    @staticmethod
+    def normalize_path(path: str) -> str:
+        """
+        normalize path
+        """
+        # delete trailing slash
+        path = re.sub(r"\*$", "", path)
+
+        # set default if path is empty
+        if path == "":
+            path = DEFAULT_DOCUMENT
+
+        return path
