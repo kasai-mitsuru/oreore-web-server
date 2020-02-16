@@ -6,7 +6,7 @@ import threading
 from socket import socket
 from typing import Dict, Tuple, List
 
-from WSGIApplication import WSGIApplication
+from application.application import WSGIApplication
 from consts import DEFAULT_DOCUMENT
 from env import DEBUG
 

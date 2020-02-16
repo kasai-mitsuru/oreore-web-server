@@ -1,21 +1,20 @@
-import socket
+import sys
 
-from ServerThread import ServerThread
-
-
-def main():
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind(("localhost", 8001))
-    print("server: a socket was bound.")
-    server_socket.listen(5)
-    print(f"server: listening.")
-    while True:
-        client_socket, address = server_socket.accept()
-        print("server: accepted.")
-        thread = ServerThread(client_socket)
-        thread.start()
-
+from server import server
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) != 2:
+        print(
+            "please command bellow. You can use only 'serve' yet.\n"
+            "'python server.py serve'"
+        )
+        exit()
+
+    method = sys.argv[1]
+    if method != "serve":
+        print(
+            "please command bellow. You can use only 'serve' yet.\n"
+            "'python server.py serve'"
+        )
+
+    getattr(server.Main, method)()
