@@ -1,21 +1,14 @@
-import datetime
-import itertools
+import io
 import logging
 import os
-import io
 import re
 import threading
 from socket import socket
-from typing import Dict, Callable, Tuple, List, Iterable
+from typing import Dict, Tuple, List
 
-from consts import (
-    NOT_FOUND_DOCUMENT,
-    STATUS_NOT_FOUND,
-    STATUS_OK,
-    HTTP_STATUS_MESSAGE,
-    DEFAULT_DOCUMENT,
-)
-from env import DOCUMENT_ROOT, DEBUG
+from WSGIApplication import WSGIApplication
+from consts import DEFAULT_DOCUMENT
+from env import DEBUG
 
 
 class ServerThread(threading.Thread):
@@ -53,7 +46,8 @@ class ServerThread(threading.Thread):
             # Call WSGI Application
             env = self.get_wsgi_env()
 
-            response_content_iterable = self.wsgi_application(env, self.start_response)
+            application = WSGIApplication()
+            response_content_iterable = application(env, self.start_response)
 
             status_line = f"HTTP/1.1 {self.response['status_message']}"
             header_part = "\r\n".join(
@@ -94,10 +88,7 @@ class ServerThread(threading.Thread):
             )
             return raw_msg
         except Exception as e:
-            self.log_error(e)
-
-    def log_error(self, e: Exception) -> None:
-        logging.error(f"server({self.instance_id}): Exception! message: %s", e)
+            logging.exception(f"server({self.instance_id}): fuck error! error: %s", e)
 
     @staticmethod
     def parse_request(msg: bytes) -> Dict:
@@ -146,10 +137,14 @@ class ServerThread(threading.Thread):
         path = re.sub(r"\*$", "", path)
 
         # make path absolute (deal with directory traversal)
+        if not os.path.isabs(path):
+            path = "/" + path
         path = os.path.abspath(path)
 
+        logging.debug(f"path: {path}")
+
         # set default if path is empty
-        if path == "":
+        if path == "/":
             path = DEFAULT_DOCUMENT
 
         return path
@@ -200,46 +195,3 @@ class ServerThread(threading.Thread):
         self.response["status_code"] = int(status_message.split(maxsplit=1)[0])
         self.response["status_message"] = status_message
         self.response["headers"] = {header[0]: header[1] for header in headers}
-
-    @staticmethod
-    def wsgi_application(
-        env: Dict, start_response: Callable[[str, List[Tuple[str, str]]], None]
-    ) -> Iterable[bytes]:
-        def get_mime_type(ext: str = "") -> str:
-            return {
-                "txt": "text/plain",
-                "html": "text/html",
-                "css": "text/css",
-                "png": "image/png",
-                "jpg": "image/jpeg",
-                "jpeg": "image/jpeg",
-                "gif": "image/gif",
-            }.get(ext.lower(), "application/octet-stream")
-
-        path = DOCUMENT_ROOT + env.get("PATH_INFO")
-
-        try:
-            with open(path, "br") as f:
-                content = f.read()
-            status = STATUS_OK
-
-        except (FileNotFoundError, IsADirectoryError) as e:
-            logging.info(f"file detecting error. path:{path}, error:{e}")
-            path = DOCUMENT_ROOT + NOT_FOUND_DOCUMENT
-            with open(path, "br") as f:
-                content = f.read()
-            status = STATUS_NOT_FOUND
-
-        status_message = HTTP_STATUS_MESSAGE[status]
-        ext = os.path.splitext(path)[1][1:]
-        mime_type = get_mime_type(ext)
-
-        headers = [
-            ("Date", datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")),
-            ("Server", "Henacorn v0.1"),
-            ("Connection", "Close"),
-            ("Content-Type", mime_type),
-        ]
-        start_response(status_message, headers)
-
-        return [content]
