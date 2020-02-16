@@ -1,13 +1,12 @@
 import datetime
+import itertools
 import logging
 import os
+import io
 import re
-import textwrap
 import threading
-import traceback
 from socket import socket
-from typing import List, Tuple, NoReturn, Dict
-from urllib import parse
+from typing import Dict, Callable, Tuple, List, Iterable
 
 from consts import (
     NOT_FOUND_DOCUMENT,
@@ -29,7 +28,19 @@ class ServerThread(threading.Thread):
         self.socket: socket = client_socket
         self.instance_id: int = ServerThread.sequence
         ServerThread.sequence += 1
-        self.request: Dict = {}
+        self.request: Dict = {
+            "method": "",
+            "path": "",
+            "version": "",
+            "headers": {},
+            "content": b"",
+        }
+        self.response: Dict = {
+            "status_code": 0,
+            "status_message": "",
+            "headers": {},
+            "content": "",
+        }
 
         super().__init__(*args, **kwargs)
 
@@ -38,42 +49,30 @@ class ServerThread(threading.Thread):
         try:
             recv_msg = self.receive_msg()
             self.request = self.parse_request(recv_msg)
-            path = self.normalize_path(self.request["path"])
 
-            # Application
-            path = self.get_abs_path(path)
+            # Call WSGI Application
+            env = self.get_wsgi_env()
 
-            # ディレクトリトラバーサル対策
-            if not path.startswith(DOCUMENT_ROOT):
-                logging.warning(
-                    f"Suspicious! A request could be intended to traverse directory. path: {abs_path}"
-                )
-                with open(DOCUMENT_ROOT + NOT_FOUND_DOCUMENT, "br") as f:
-                    content = f.read()
-                status = STATUS_NOT_FOUND
-                mime_type = "text/html"
-            else:
-                ext = path.split(".")[-1]
-                mime_type = self.get_mime_types(ext)
+            response_content_iterable = self.wsgi_application(env, self.start_response)
 
-                try:
-                    with open(path, "br") as f:
-                        content = f.read()
-                    status = STATUS_OK
-                except (FileNotFoundError, IsADirectoryError) as e:
-                    logging.info(f"file detecting error. path:{path}, error:{e}")
-                    with open(DOCUMENT_ROOT + NOT_FOUND_DOCUMENT, "br") as f:
-                        content = f.read()
-                    status = STATUS_NOT_FOUND
+            status_line = f"HTTP/1.1 {self.response['status_message']}"
+            header_part = "\r\n".join(
+                f"{header_name}: {header_value}"
+                for header_name, header_value in self.response["headers"].items()
+            )
+            response_content = b"".join(response_content_iterable)
 
-            header = self.get_header(status=status, mime_type=mime_type)
+            send_msg = (
+                status_line + "\r\n" + header_part + "\r\n\r\n"
+            ).encode() + response_content
 
-            send_msg = header.encode("utf-8") + content
             self.socket.send(send_msg)
             logging.debug(
-                f"server({self.instance_id}): send server's messages.\n"
-                "-----------------------------------\n"
-                f"{header}\n"
+                f"server({self.instance_id}): send server's message.\n"
+                "-------------(header only)----------------------\n"
+                f"{status_line}\r\n"
+                f"{header_part}\r\n\r\n"
+                f"{response_content}"
                 "-----------------------------------\n"
             )
         except Exception as e:
@@ -82,69 +81,47 @@ class ServerThread(threading.Thread):
             self.socket.close()
             logging.debug(f"server({self.instance_id}): closed.")
 
-    def get_header(self, status: int, mime_type: str) -> str:
-        header = self.get_header_status(status) + "\n"
-        header += "Date: " + datetime.datetime.utcnow().strftime(
-            "%a, %d %b %Y %H:%M:%S GMT\n"
-        )
-        header += "Server: oreore-web-server v0.1\n"
-        header += "Connection: Close\n"
-        header += f"ContentType: {mime_type}\n"
-        header += "\n"
-        return header
-
-    @staticmethod
-    def get_header_status(status: int) -> str:
-        return f"HTTP/1.1 {HTTP_STATUS_MESSAGE[status]}"
-
-    @staticmethod
-    def get_mime_types(ext: str = "") -> str:
-        return {
-            "txt": "text/plain",
-            "html": "text/html",
-            "css": "text/css",
-            "png": "image/png",
-            "jpg": "image/jpeg",
-            "jpeg": "image/jpeg",
-            "gif": "image/gif",
-        }.get(ext.lower(), "application/octet-stream")
-
-    def receive_msg(self) -> str:
+    def receive_msg(self) -> bytes:
         try:
-            recv_msg_raw = self.socket.recv(4096)
+            raw_msg = self.socket.recv(4096)
             with open("./server_recv", "bw") as f:
-                f.write(recv_msg_raw)
-            recv_msg_decoded = recv_msg_raw.decode()
+                f.write(raw_msg)
             logging.debug(
                 f"server({self.instance_id}): received client's messages.\n"
                 "-----------------------------------\n"
-                f"{recv_msg_decoded}\n"
+                f"{raw_msg.decode()}\n"
                 "-----------------------------------\n"
             )
-            return recv_msg_decoded
+            return raw_msg
         except Exception as e:
             self.log_error(e)
 
-    def log_error(self, e: Exception) -> NoReturn:
+    def log_error(self, e: Exception) -> None:
         logging.error(f"server({self.instance_id}): Exception! message: %s", e)
 
     @staticmethod
-    def parse_request(msg: str) -> Dict:
+    def parse_request(msg: bytes) -> Dict:
         """
         parse request message and return dict of
         {
             "method": http method
             "path": request path
-            "version": http version
+            "protocol": request protocol
             "headers": dict of headers
             "content": request content
         }
         """
-        request_line, remain_lines = msg.split("\r\n", 1)
-        header_part, content_part = remain_lines.split("\r\n\r\n", 1)
+        raw_request_line, remain_part = msg.split(b"\r\n", 1)
+        raw_header_part, content_part = remain_part.split(b"\r\n\r\n", 1)
 
-        method, path, version = request_line.split()
+        request_line = raw_request_line.decode()
+        method, raw_path, protocol = request_line.split()
+        if raw_path.find("?") != -1:
+            path, query = raw_path.split("?", 1)
+        else:
+            path, query = raw_path, ""
 
+        header_part = raw_header_part.decode()
         header_lines = header_part.splitlines()
         headers = {}
         for header_line in header_lines:
@@ -154,17 +131,11 @@ class ServerThread(threading.Thread):
         return {
             "method": method,
             "path": path,
-            "version": version,
+            "query": query,
+            "protocol": protocol,
             "headers": headers,
             "content": content_part,
         }
-
-    @staticmethod
-    def get_abs_path(path: str) -> str:
-        """
-        absolute request path from raw request path
-        """
-        return os.path.abspath(DOCUMENT_ROOT + path)
 
     @staticmethod
     def normalize_path(path: str) -> str:
@@ -174,8 +145,101 @@ class ServerThread(threading.Thread):
         # delete trailing slash
         path = re.sub(r"\*$", "", path)
 
+        # make path absolute (deal with directory traversal)
+        path = os.path.abspath(path)
+
         # set default if path is empty
         if path == "":
             path = DEFAULT_DOCUMENT
 
         return path
+
+    def get_wsgi_env(self) -> Dict:
+        path = self.normalize_path(self.request["path"])
+
+        http_host = self.request["headers"].get("Host")
+        if http_host.find(":") != -1:
+            server_name, server_port = http_host.split(":", 1)
+        else:
+            server_name, server_port = http_host, ""
+
+        env = {
+            "REQUEST_METHOD": self.request["method"],
+            "SCRIPT_NAME": "",  # TODO: should be implemented ?
+            "PATH_INFO": path,
+            "QUERY_STRING": self.request["query"],
+            "SERVER_NAME": server_name,
+            "SERVER_PORT": server_port,
+            "SERVER_PROTOCOL": self.request["protocol"],
+            "wsgi.version": (1, 0),
+            "wsgi.url_scheme": "http",  # NOTE: http only now
+            "wsgi.input": io.BytesIO(self.request["content"]),
+            "wsgi.errors": io.StringIO(),
+            "wsgi.multithread": True,
+            "wsgi.multiprocess": False,
+            "wsgi.run_once": False,
+        }
+
+        content_type = self.request["headers"].get("Content-Type")
+        if content_type:
+            env["CONTENT_TYPE"] = content_type
+
+        content_length = self.request["headers"].get("Content-Length")
+        if content_length:
+            env["CONTENT_LENGTH"] = content_length
+
+        for header_name, header_value in self.request["headers"].items():
+            key = "HTTP_" + header_name.replace("-", "_").upper()
+            env[key] = header_value
+
+        return env
+
+    def start_response(
+        self, status_message: str, headers: List[Tuple[str, str]]
+    ) -> None:
+        self.response["status_code"] = int(status_message.split(maxsplit=1)[0])
+        self.response["status_message"] = status_message
+        self.response["headers"] = {header[0]: header[1] for header in headers}
+
+    @staticmethod
+    def wsgi_application(
+        env: Dict, start_response: Callable[[str, List[Tuple[str, str]]], None]
+    ) -> Iterable[bytes]:
+        def get_mime_type(ext: str = "") -> str:
+            return {
+                "txt": "text/plain",
+                "html": "text/html",
+                "css": "text/css",
+                "png": "image/png",
+                "jpg": "image/jpeg",
+                "jpeg": "image/jpeg",
+                "gif": "image/gif",
+            }.get(ext.lower(), "application/octet-stream")
+
+        path = DOCUMENT_ROOT + env.get("PATH_INFO")
+
+        try:
+            with open(path, "br") as f:
+                content = f.read()
+            status = STATUS_OK
+
+        except (FileNotFoundError, IsADirectoryError) as e:
+            logging.info(f"file detecting error. path:{path}, error:{e}")
+            path = DOCUMENT_ROOT + NOT_FOUND_DOCUMENT
+            with open(path, "br") as f:
+                content = f.read()
+            status = STATUS_NOT_FOUND
+
+        status_message = HTTP_STATUS_MESSAGE[status]
+        ext = os.path.splitext(path)[1][1:]
+        mime_type = get_mime_type(ext)
+
+        headers = [
+            ("Date", datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")),
+            ("Server", "Henacorn v0.1"),
+            ("Connection", "Close"),
+            ("Content-Type", mime_type),
+        ]
+        start_response(status_message, headers)
+
+        return [content]
