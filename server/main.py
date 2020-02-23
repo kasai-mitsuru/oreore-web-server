@@ -1,6 +1,6 @@
 import socket
 
-from server.thread import ServerThread
+from server.worker import WorkerThread
 
 
 class Main:
@@ -15,5 +15,5 @@ class Main:
         while True:
             client_socket, address = server_socket.accept()
             print("server: accepted.")
-            thread = ServerThread(client_socket)
+            thread = WorkerThread(client_socket)
             thread.start()

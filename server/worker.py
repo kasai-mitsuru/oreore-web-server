@@ -6,12 +6,11 @@ import threading
 from socket import socket
 from typing import Dict, Tuple, List
 
-from application.application import WSGIApplication
-from consts import DEFAULT_DOCUMENT
+from application.core.application import WSGIApplication
 from env import DEBUG
 
 
-class ServerThread(threading.Thread):
+class WorkerThread(threading.Thread):
     sequence: int = 0
 
     def __init__(self, client_socket: socket, *args, **kwargs):
@@ -19,8 +18,8 @@ class ServerThread(threading.Thread):
             logging.basicConfig(level=logging.DEBUG)
 
         self.socket: socket = client_socket
-        self.instance_id: int = ServerThread.sequence
-        ServerThread.sequence += 1
+        self.instance_id: int = WorkerThread.sequence
+        WorkerThread.sequence += 1
         self.request: Dict = {
             "method": "",
             "path": "",
@@ -61,12 +60,16 @@ class ServerThread(threading.Thread):
             ).encode() + response_content
 
             self.socket.send(send_msg)
+            try:
+                content_to_log = response_content.decode()
+            except Exception:
+                content_to_log = response_content
             logging.debug(
                 f"server({self.instance_id}): send server's message.\n"
-                "-------------(header only)----------------------\n"
+                "-----------------------------------\n"
                 f"{status_line}\r\n"
                 f"{header_part}\r\n\r\n"
-                f"{response_content}"
+                f"{content_to_log}\n"
                 "-----------------------------------\n"
             )
         except Exception as e:
@@ -144,8 +147,8 @@ class ServerThread(threading.Thread):
         logging.debug(f"path: {path}")
 
         # set default if path is empty
-        if path == "/":
-            path = DEFAULT_DOCUMENT
+        # if path == "/":
+        #     path = DEFAULT_DOCUMENT
 
         return path
 

@@ -1,6 +1,6 @@
 import sys
 
-from server import server
+from server import main
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -17,4 +17,4 @@ if __name__ == "__main__":
             "'python server.py serve'"
         )
 
-    getattr(server.Main, method)()
+    getattr(main.Main, method)()
