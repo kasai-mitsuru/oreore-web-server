@@ -1,10 +1,13 @@
-import os
 from importlib import import_module
 from pathlib import Path
 from typing import Dict
 
-from application.core.route.router import BaseRouter, RouterView, RouterRedirect
-from application.settings import ROUTES_DIR, BASE_DIR
+from application.henavel.controller.routing.router import (
+    RouterController,
+    RouterRedirect,
+    BaseRouter,
+)
+from application.settings import ROUTES_DIR
 
 
 class Container:
@@ -19,8 +22,8 @@ class Container:
             raise RouterNotRegisteredError(f"a router for '{route}' is not found.")
         return self.container[route]
 
-    def view(self, route: str, view_class):
-        self.container[route] = RouterView(view_class)
+    def controller(self, route: str, controller_class):
+        self.container[route] = RouterController(controller_class)
 
     def redirect(self, route: str, url: str):
         self.container[route] = RouterRedirect(url)

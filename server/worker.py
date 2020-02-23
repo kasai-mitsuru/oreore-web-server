@@ -6,7 +6,7 @@ import threading
 from socket import socket
 from typing import Dict, Tuple, List
 
-from application.core.application import WSGIApplication
+from application.henavel.application import WSGIApplication
 from env import DEBUG
 
 

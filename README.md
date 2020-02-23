@@ -5,19 +5,13 @@ History of making Oreore Web Server
 ## Run Server
 Command at root directory
 
-`python server.py`
+`python server.py serve`
 
-## Only You Can Do
-Access bellow with a browser
+## Play BBS
+Please Access
+`http://localhost:8001/bbs`
 
-`http://localhost:8001/index.html`
-
-That's all.
-
-## Stop Server
-Do keyboard interrupt
-
-`Ctrl + C`
+DB is in memory yet, so data is flushed if you rerun server.
 
 ## Caution
 Exceptions are ignored.

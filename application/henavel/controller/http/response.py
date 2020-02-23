@@ -1,6 +1,6 @@
 from typing import Union
 
-from application.core.http import consts
+from application.henavel.controller.http import consts
 from application.settings import NOT_FOUND_FILE
 
 

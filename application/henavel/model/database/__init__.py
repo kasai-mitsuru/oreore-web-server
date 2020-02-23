@@ -1,4 +1,4 @@
-IN_MEMORY_LIST_DB = {
+IN_MEMORY_DICT_DB = {
     "posts": [
         {
             "name": "aさん",

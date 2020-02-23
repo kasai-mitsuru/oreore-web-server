@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-from application.core.http.request import Request
-from application.core.http.response import ResponseRedirect, Response
+from application.henavel.controller.http.request import Request
+from application.henavel.controller.http.response import Response, ResponseRedirect
 
 
 class BaseRouter(ABC):
@@ -10,12 +10,12 @@ class BaseRouter(ABC):
         pass
 
 
-class RouterView(BaseRouter):
-    def __init__(self, view_class):
-        self.view_class = view_class
+class RouterController(BaseRouter):
+    def __init__(self, controller_class):
+        self.controller_class = controller_class
 
     def get_response(self, request: Request) -> Response:
-        return self.view_class().get_response(request)
+        return self.controller_class().get_response(request)
 
 
 class RouterRedirect(BaseRouter):
