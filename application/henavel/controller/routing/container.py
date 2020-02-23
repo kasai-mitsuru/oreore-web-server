@@ -1,3 +1,4 @@
+import logging
 import sys
 from importlib import import_module
 from pathlib import Path
@@ -13,6 +14,7 @@ from application.settings import ROUTES_DIR
 
 class Container:
     def __init__(self):
+        logging.debug("RouterContainer created.")
         self.container: Dict[str, BaseRouter] = {}
 
     def is_registered(self, route: str):

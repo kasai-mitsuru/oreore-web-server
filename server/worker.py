@@ -81,8 +81,6 @@ class WorkerThread(threading.Thread):
     def receive_msg(self) -> bytes:
         try:
             raw_msg = self.socket.recv(4096)
-            with open("./server_recv", "bw") as f:
-                f.write(raw_msg)
             logging.debug(
                 f"server({self.instance_id}): received client's messages.\n"
                 "-----------------------------------\n"

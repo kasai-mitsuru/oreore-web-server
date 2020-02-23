@@ -6,7 +6,7 @@ from application.henavel.controller.http.consts import (
     STATUS_SERVER_ERROR,
     REASON_PHRASES,
 )
-from application.henavel.controller.http.cookie import Cookie, CookieContainer
+from application.henavel.controller.http.cookie import CookieContainer
 from application.henavel.controller.http.request import Request
 from application.henavel.controller.http.response import ResponseNotFound, Response
 from application.henavel.controller.routing.container import route_container
