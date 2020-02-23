@@ -1,7 +1,7 @@
 from typing import Dict, List
 from urllib.parse import unquote
 
-from application.henavel.controller.http.cookie import Cookie
+from application.henavel.controller.http.cookie import Cookie, CookieContainer
 
 
 class Request:
@@ -11,7 +11,7 @@ class Request:
         self.query: str = env["QUERY_STRING"]
         self.GET: Dict = {}
         self.POST: Dict = {}
-        self.cookies: List[Cookie] = []
+        self.cookies: CookieContainer = CookieContainer()
         self.body: bytes = env["wsgi.input"].read()
 
         if self.query:
@@ -21,7 +21,7 @@ class Request:
             self.POST = self.parse_query(self.body.decode())
 
         if "HTTP_COOKIE" in env:
-            self.cookies = self.build_cookies(env["HTTP_COOKIE"])
+            self.save_cookies(env["HTTP_COOKIE"])
 
     @staticmethod
     def parse_query(query: str) -> Dict:
@@ -43,13 +43,9 @@ class Request:
 
         return params
 
-    @staticmethod
-    def build_cookies(line: str) -> List[Cookie]:
-        cookies = []
+    def save_cookies(self, line: str) -> None:
         pairs = line.split(";")
 
         for pair in pairs:
             name, value = pair.strip().split("=", 1)
-            cookies.append(Cookie(name=name, value=value))
-
-        return cookies
+            self.cookies.save(Cookie(name=name, value=value))

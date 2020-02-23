@@ -1,7 +1,7 @@
-from typing import Union, List
+from typing import Union, List, Iterable
 
 from application.henavel.controller.http import consts
-from application.henavel.controller.http.cookie import Cookie
+from application.henavel.controller.http.cookie import Cookie, CookieContainer
 from application.settings import NOT_FOUND_FILE
 
 
@@ -14,13 +14,13 @@ class Response:
         reason_phrase: str = "",
         content_type: str = "",
         content: Union[bytes, str] = "",
-        cookies: List[Cookie] = None,
+        cookies: Iterable[Cookie] = None,
     ):
         self.status_code: int = status_code if status_code else self.__class__.status_code
         self.reason_phrase: str = reason_phrase
         self.content_type: str = content_type
         self.content: Union[bytes, str] = content
-        self.cookies: List[Cookie] = cookies if cookies else []
+        self.cookies: CookieContainer = CookieContainer(cookies=cookies)
 
 
 class ResponseRedirect(Response):

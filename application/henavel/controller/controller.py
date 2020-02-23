@@ -1,10 +1,7 @@
 from abc import ABC
 
-from jinja2 import Environment, FileSystemLoader
-
 from application.henavel.controller.http.request import Request
 from application.henavel.controller.http.response import Response, ResponseBadRequest
-from application.settings import TEMPLATES_DIR
 
 
 class Controller(ABC):

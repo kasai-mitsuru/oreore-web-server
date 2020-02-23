@@ -12,17 +12,13 @@ class IndexController(Controller):
     def get(self, request: Request) -> Response:
         content = View("index.html").render()
 
-        counter_cookie = None
-        for cookie in request.cookies:
-            if cookie.name == "counter":
-                counter_cookie = cookie
-            break
+        counter_cookie = request.cookies.get("counter", None)
 
-        if not counter_cookie:
+        if counter_cookie is None:
             counter_cookie = Cookie(name="counter", value="0", max_age=300)
         else:
-            counter_cookie.value = str(int(counter_cookie.value) + 1)
-            counter_cookie.max_age = 300
+            value = str(int(counter_cookie.value) + 1)
+            counter_cookie.update(value=value, max_age=300)
 
         return Response(content=content, cookies=[counter_cookie])
 
