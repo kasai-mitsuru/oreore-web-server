@@ -1,6 +1,10 @@
+import os
+from importlib import import_module
+from pathlib import Path
 from typing import Dict
 
 from application.core.route.router import BaseRouter, RouterView, RouterRedirect
+from application.settings import ROUTES_DIR, BASE_DIR
 
 
 class Container:
@@ -27,8 +31,11 @@ class RouterNotRegisteredError(Exception):
 
 
 def import_routes():
-    # noinspection PyUnresolvedReferences
-    import application.routes
+    route_files = Path(ROUTES_DIR).glob("*.py")
+
+    for file in route_files:
+        module_name = file.name.rsplit(".py")[0]
+        import_module(f"application.routes.{module_name}")
 
 
 route_container = Container()
