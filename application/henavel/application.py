@@ -39,34 +39,11 @@ class WSGIApplication:
                 content_type = self.get_mime_type(path)
                 response = Response(content=content, content_type=content_type)
 
-        status_code = getattr(response, "status_code", 0)
-        status_code = status_code if status_code else STATUS_SERVER_ERROR
-        reason_phrase = getattr(response, "response_phrase", "")
-        reason_phrase = reason_phrase if reason_phrase else REASON_PHRASES[status_code]
-        status_line = f"{str(status_code)} {reason_phrase}"
-        content_type = getattr(response, "content_type", "")
-        content_type = content_type if content_type else "text/html"
-        content = getattr(response, "content", b"")
-        if isinstance(content, str):
-            content = content.encode()
-
-        headers = [
-            ("Date", datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")),
-            ("Server", "Henacorn v0.1"),
-            ("Connection", "Close"),
-            ("Content-Type", content_type),
-        ]
-
-        location = getattr(response, "location", "")
-        if location:
-            headers.append(("Location", location))
-
-        cookies: List[Cookie] = getattr(response, "cookies", [])
-        for cookie in cookies:
-            headers.append(("Set-Cookie", cookie.get_header_format()))
+        status_line = self.get_status_line(response)
+        headers = self.get_headers(response)
+        content = self.get_content(response)
 
         start_response(status_line, headers)
-
         return [content]
 
     @staticmethod
@@ -83,3 +60,43 @@ class WSGIApplication:
             "jpeg": "image/jpeg",
             "gif": "image/gif",
         }.get(ext.lower(), "application/octet-stream")
+
+    @staticmethod
+    def get_status_line(response) -> str:
+        status_code = getattr(response, "status_code", 0)
+        status_code = status_code if status_code else STATUS_SERVER_ERROR
+        reason_phrase = getattr(response, "response_phrase", "")
+        reason_phrase = reason_phrase if reason_phrase else REASON_PHRASES[status_code]
+        status_line = f"{str(status_code)} {reason_phrase}"
+
+        return status_line
+
+    @staticmethod
+    def get_headers(response) -> List[Tuple[str, str]]:
+        content_type = getattr(response, "content_type", "")
+        content_type = content_type if content_type else "text/html"
+
+        headers = [
+            ("Date", datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")),
+            ("Server", "Henacorn v0.1"),
+            ("Connection", "Close"),
+            ("Content-Type", content_type),
+        ]
+
+        location = getattr(response, "location", "")
+        if location:
+            headers.append(("Location", location))
+
+        cookies: List[Cookie] = getattr(response, "cookies", [])
+        for cookie in cookies:
+            headers.append(("Set-Cookie", cookie.get_header_format()))
+
+        return headers
+
+    @staticmethod
+    def get_content(response: Response) -> bytes:
+        content = getattr(response, "content", b"")
+        if isinstance(content, str):
+            content = content.encode()
+
+        return content
