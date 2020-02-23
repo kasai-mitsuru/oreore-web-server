@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>掲示板</title>
+</head>
+<body>
+  <h1>掲示板だよ</h1>
+
+  <form method="post">
+    <p>
+      名前: <input type="text" name="name" />
+    </p>
+    <p>
+      本文: <textarea rows="10" cols="60" name="body"></textarea>
+    </p>
+    <input type="submit" value="投稿するよ！">
+  </form>
+
+  <hr>
+
+  <h2>過去の投稿</h2>
+  {% for post in posts %}
+    <div>
+      {{ post.name }} {{ post.created_at }} <br>
+      {{ post.body }}
+    </div>
+  {% endfor %}
+</body>
+</html>

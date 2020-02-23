@@ -1,5 +1,5 @@
 from application.core.route.container import route_container
-from application.views import IndexView
+from application.views import IndexView, BBSView
 
 route_container.view("/index", IndexView)
-route_container.redirect("/", "/index")
+route_container.view("/bbs", BBSView)

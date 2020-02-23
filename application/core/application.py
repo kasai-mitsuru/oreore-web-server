@@ -10,9 +10,6 @@ from application.settings import PUBLIC_DIR
 
 
 class WSGIApplication:
-    def __init__(self):
-        self.route_container = route_container
-
     def __call__(
         self, env: Dict, start_response: Callable[[str, List[Tuple[str, str]]], None]
     ) -> Iterable[bytes]:
@@ -20,9 +17,9 @@ class WSGIApplication:
         request = Request(env)
 
         path = request.path
-        if self.route_container.is_registered(path):
+        if route_container.is_registered(path):
             # 登録済みのrouterからレスポンスを取得する
-            router = self.route_container.resolve(path)
+            router = route_container.resolve(path)
             response = router.get_response(request)
         else:
             # routerに登録されていなかった場合、静的ファイルを取得しにいく

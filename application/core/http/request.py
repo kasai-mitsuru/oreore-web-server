@@ -1,4 +1,5 @@
 from typing import Dict
+from urllib.parse import unquote
 
 
 class Request:
@@ -8,7 +9,7 @@ class Request:
         self.query: str = env["QUERY_STRING"]
         self.GET: Dict = {}
         self.POST: Dict = {}
-        self.body: bytes = env["wsgi.input"]
+        self.body: bytes = env["wsgi.input"].read()
 
         if self.query:
             self.GET = self.parse_query(self.query)
@@ -20,6 +21,8 @@ class Request:
     def parse_query(query: str) -> Dict:
         if not query:
             return {}
+
+        query = unquote(query)
 
         param_strings = query.split("&")
         params = {}
