@@ -11,7 +11,7 @@ Command at root directory
 Please Access
 `http://localhost:8001/bbs`
 
-DB is in memory yet, so data is flushed if you rerun server.
+DB is in memory yet, so data is flushed if you stop/rerun server.
 
 ## Caution
 Exceptions are ignored.

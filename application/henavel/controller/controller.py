@@ -23,13 +23,3 @@ class Controller(ABC):
 
     def post(self, request: Request) -> ResponseBadRequest:
         return ResponseBadRequest()
-
-    @staticmethod
-    def render(template_name: str, context=None):
-        if context is None:
-            context = {}
-        template_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
-        template = template_env.get_template(template_name)
-        content = template.render(context)
-
-        return content

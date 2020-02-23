@@ -1,3 +1,4 @@
+import sys
 from importlib import import_module
 from pathlib import Path
 from typing import Dict
@@ -34,11 +35,14 @@ class RouterNotRegisteredError(Exception):
 
 
 def import_routes():
+    sys.path.append(ROUTES_DIR)
     route_files = Path(ROUTES_DIR).glob("*.py")
 
     for file in route_files:
         module_name = file.name.rsplit(".py")[0]
-        import_module(f"application.routes.{module_name}")
+        import_module(f"{module_name}")
+
+    sys.path.pop()
 
 
 route_container = Container()
