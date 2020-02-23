@@ -1,2 +1,0 @@
-DEFAULT_DOCUMENT = "/index.html"
-NOT_FOUND_DOCUMENT = "/404.html"

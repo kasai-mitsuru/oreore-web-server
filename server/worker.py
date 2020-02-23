@@ -146,10 +146,6 @@ class WorkerThread(threading.Thread):
 
         logging.debug(f"path: {path}")
 
-        # set default if path is empty
-        # if path == "/":
-        #     path = DEFAULT_DOCUMENT
-
         return path
 
     def get_wsgi_env(self) -> Dict:
