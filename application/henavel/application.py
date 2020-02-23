@@ -6,6 +6,7 @@ from application.henavel.controller.http.consts import (
     STATUS_SERVER_ERROR,
     REASON_PHRASES,
 )
+from application.henavel.controller.http.cookie import Cookie
 from application.henavel.controller.http.request import Request
 from application.henavel.controller.http.response import ResponseNotFound, Response
 from application.henavel.controller.routing.container import route_container
@@ -59,6 +60,10 @@ class WSGIApplication:
         location = getattr(response, "location", "")
         if location:
             headers.append(("Location", location))
+
+        cookies: List[Cookie] = getattr(response, "cookies", [])
+        for cookie in cookies:
+            headers.append(("Set-Cookie", cookie.get_header_format()))
 
         start_response(status_line, headers)
 

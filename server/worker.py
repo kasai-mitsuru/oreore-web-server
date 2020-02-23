@@ -144,8 +144,6 @@ class WorkerThread(threading.Thread):
             path = "/" + path
         path = os.path.abspath(path)
 
-        logging.debug(f"path: {path}")
-
         return path
 
     def get_wsgi_env(self) -> Dict:
