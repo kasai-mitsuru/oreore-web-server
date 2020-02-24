@@ -1,8 +1,14 @@
+import logging
 import sys
 
-from server import main
+from env import DEBUG
+
+if DEBUG:
+    logging.basicConfig(level=logging.DEBUG)
 
 if __name__ == "__main__":
+    from server import main
+
     if len(sys.argv) != 2:
         print(
             "please command bellow. You can use only 'serve' yet.\n"

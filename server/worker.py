@@ -7,15 +7,12 @@ from socket import socket
 from typing import Dict, Tuple, List
 
 from application.henavel.application import WSGIApplication
-from env import DEBUG
 
 
 class WorkerThread(threading.Thread):
     sequence: int = 0
 
     def __init__(self, client_socket: socket, *args, **kwargs):
-        if DEBUG:
-            logging.basicConfig(level=logging.DEBUG)
 
         self.socket: socket = client_socket
         self.instance_id: int = WorkerThread.sequence

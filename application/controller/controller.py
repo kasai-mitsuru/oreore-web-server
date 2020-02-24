@@ -12,7 +12,7 @@ class IndexController(Controller):
     def get(self, request: Request) -> Response:
         content = View("index.html").render()
 
-        counter_cookie = request.cookies.get("counter", None)
+        counter_cookie = request.cookies.get("counter")
 
         if counter_cookie is None:
             counter_cookie = Cookie(name="counter", value="0", max_age=300)

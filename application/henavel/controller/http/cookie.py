@@ -91,11 +91,11 @@ class CookieContainer:
             del self.cookies[name]
         return self
 
-    def get(self, name, default=None):
+    def get(self, name, default=None, raises=False):
         if name in self.cookies:
             return self.cookies[name]
         else:
-            if default is None:
+            if raises is True:
                 raise KeyError(f"a cookie '{name}' does not exist.")
             else:
                 return default
