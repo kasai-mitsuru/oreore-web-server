@@ -1,4 +1,4 @@
-from typing import Union, List, Iterable
+from typing import Union, Iterable
 
 from application.henavel.controller.http import consts
 from application.henavel.controller.http.cookie import Cookie, CookieContainer

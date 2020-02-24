@@ -22,11 +22,11 @@ class WSGIApplication:
 
         path = request.path
         if route_container.is_registered(path):
-            # 登録済みのrouterからレスポンスを取得する
-            router = route_container.resolve(path)
-            response = router.get_response(request)
+            # 登録済みのrouteからレスポンスを取得する
+            route = route_container.resolve(path)
+            response = route.get_response(request)
         else:
-            # routerに登録されていなかった場合、静的ファイルを取得しにいく
+            # routeに登録されていなかった場合、静的ファイルを取得しにいく
             relative_path = request.path.split(os.sep, 1)[1]
             path = os.path.join(PUBLIC_DIR, relative_path)
 

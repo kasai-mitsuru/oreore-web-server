@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict
 from urllib.parse import unquote
 
 from application.henavel.controller.http.cookie import Cookie, CookieContainer

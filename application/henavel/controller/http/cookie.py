@@ -1,23 +1,27 @@
-from datetime import datetime, timedelta
-from typing import Dict, Iterable
+from datetime import datetime
+from typing import Dict, Iterable, Union
 
 
 class Cookie:
+    EXPIRES_FORMAT = "%a, %d %b %Y %H:%M:%S GMT"
+
     def __init__(
         self,
         name: str,
         value: str,
-        domain: str = "",
-        path: str = "",
-        max_age: int = -1,
+        domain: str = None,
+        path: str = None,
+        expires: datetime = None,
+        max_age: int = None,
         secure: bool = False,
         http_only: bool = True,
     ):
         self.name: str = name
         self.value: str = value
-        self.domain: str = domain
-        self.path: str = path
-        self.max_age: int = max_age
+        self.domain: Union[str, None] = domain
+        self.path: Union[str, None] = path
+        self.expires: Union[datetime, None] = expires
+        self.max_age: Union[int, None] = max_age
         self.secure: bool = secure
         self.http_only: bool = http_only
 
@@ -49,21 +53,24 @@ class Cookie:
     def get_header_format(self):
         items = [f"{self.name}={self.value}"]
 
-        if self.domain:
+        if self.domain is not None:
             items.append(f"Domain={self.domain}")
-        if self.path:
+        if self.path is not None:
             items.append(f"Path={self.path}")
-        if self.max_age > -1:
-            expires = (datetime.now() + timedelta(seconds=self.max_age)).strftime(
-                "%a, %d %b %Y %H:%M:%S GMT"
-            )
+        if self.expires is not None:
+            expires = self.expires.strftime(self.EXPIRES_FORMAT)
             items.append(f"Expires={expires}")
+        if self.max_age is not None:
+            items.append(f"Max-Age={str(self.max_age)}")
         if self.secure:
             items.append("Secure")
         if self.http_only:
             items.append("HttpOnly")
 
         return "; ".join(items)
+
+    def is_expired(self):
+        return self.expires < datetime.now()
 
 
 class CookieContainer:

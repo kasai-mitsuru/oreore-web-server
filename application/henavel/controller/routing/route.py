@@ -4,13 +4,13 @@ from application.henavel.controller.http.request import Request
 from application.henavel.controller.http.response import Response, ResponseRedirect
 
 
-class BaseRouter(ABC):
+class BaseRoute(ABC):
     @abstractmethod
     def get_response(self, request: Request) -> Response:
         pass
 
 
-class RouterController(BaseRouter):
+class RouteController(BaseRoute):
     def __init__(self, controller_class):
         self.controller_class = controller_class
 
@@ -18,7 +18,7 @@ class RouterController(BaseRouter):
         return self.controller_class().get_response(request)
 
 
-class RouterRedirect(BaseRouter):
+class RouteRedirect(BaseRoute):
     def __init__(self, url: str):
         self.url = url
 
