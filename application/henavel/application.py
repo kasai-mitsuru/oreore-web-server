@@ -9,7 +9,7 @@ from application.henavel.controller.http.consts import (
 from application.henavel.controller.http.cookie import CookieContainer
 from application.henavel.controller.http.request import Request
 from application.henavel.controller.http.response import ResponseNotFound, Response
-from application.henavel.controller.routing.container import route_container
+from application.henavel.controller.routing.route_manager import route_manager
 from application.settings import PUBLIC_DIR
 
 
@@ -21,9 +21,9 @@ class WSGIApplication:
         request = Request(env)
 
         path = request.path
-        if route_container.is_registered(path):
+        if route_manager.is_registered(path):
             # 登録済みのrouteからレスポンスを取得する
-            route = route_container.resolve(path)
+            route = route_manager.resolve(path)
             response = route.get_response(request)
         else:
             # routeに登録されていなかった場合、静的ファイルを取得しにいく

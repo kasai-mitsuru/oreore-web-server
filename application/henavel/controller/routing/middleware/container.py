@@ -6,7 +6,7 @@ from application.henavel.controller.routing.middleware.middleware import Middlew
 from application.henavel.controller.routing.route import Route
 
 
-class MiddlewareContainer(Middleware):
+class MiddlewareManager(Middleware):
     def __init__(self):
         self.middlewares: List[Middleware] = self.correct_middlewares()
 
@@ -29,4 +29,4 @@ class MiddlewareContainer(Middleware):
         return middlewares
 
 
-middleware_container = MiddlewareContainer()
+middleware_manager = MiddlewareManager()

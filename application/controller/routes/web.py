@@ -1,6 +1,6 @@
 from application.controller.controllers import IndexController, BBSController
-from application.henavel.controller.routing.container import route_container
+from application.henavel.controller.routing.route_manager import route_manager
 
-route_container.redirect("/", "/index")
-route_container.controller("/index", IndexController)
-route_container.controller("/bbs", BBSController)
+route_manager.redirect("/", "/index")
+route_manager.controller("/index", IndexController)
+route_manager.controller("/bbs", BBSController)

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict
 
 from application.henavel.controller.routing.middleware.container import (
-    middleware_container,
+    middleware_manager,
 )
 from application.henavel.controller.routing.route import (
     RouteController,
@@ -14,7 +14,7 @@ from application.henavel.controller.routing.route import (
 from application.settings import ROUTES_DIR
 
 
-class RouteContainer:
+class RouteManager:
     def __init__(self):
         self.container: Dict[str, Route] = {}
 
@@ -27,7 +27,7 @@ class RouteContainer:
 
         route = self.container[path]
 
-        route = middleware_container.wrap(route)
+        route = middleware_manager.wrap(route)
 
         return route
 
@@ -56,5 +56,5 @@ def import_routes():
     sys.path.pop()
 
 
-route_container = RouteContainer()
+route_manager = RouteManager()
 import_routes()
