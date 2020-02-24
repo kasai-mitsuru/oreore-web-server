@@ -2,9 +2,6 @@ from importlib import import_module
 from typing import List
 
 from application import settings
-from application.henavel.controller.middlewares.session_middleware import (
-    SessionMiddleware,
-)
 from application.henavel.controller.routing.middleware.middleware import Middleware
 from application.henavel.controller.routing.route import Route
 

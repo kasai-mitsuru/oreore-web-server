@@ -1,7 +1,8 @@
-from typing import Dict
+from typing import Dict, Union
 from urllib.parse import unquote
 
 from application.henavel.controller.http.cookie import Cookie, CookieContainer
+from application.henavel.controller.session.session import Session
 
 
 class Request:
@@ -12,6 +13,7 @@ class Request:
         self.GET: Dict = {}
         self.POST: Dict = {}
         self.cookies: CookieContainer = CookieContainer()
+        self.session: Union[Session, None] = None
         self.body: bytes = env["wsgi.input"].read()
 
         if self.query:

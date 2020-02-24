@@ -28,17 +28,23 @@ class IndexController(Controller):
 
 class BBSController(Controller):
     def get(self, request: Request) -> Response:
-        context = {"posts": IN_MEMORY_DICT_DB["posts"]}
+
+        context = {
+            "posts": IN_MEMORY_DICT_DB["posts"],
+            "user_name": request.session.get("name", ""),
+        }
         content = View("bbs.html", context).render()
 
         return Response(content=content)
 
     def post(self, request: Request) -> Response:
-        post = {}
-        post["name"] = request.POST["name"]
-        post["body"] = request.POST["body"]
-        post["created_at"] = datetime.datetime.now()
-
+        post = {
+            "name": request.POST["name"],
+            "body": request.POST["body"],
+            "created_at": datetime.datetime.now(),
+        }
         IN_MEMORY_DICT_DB["posts"].append(post)
+
+        request.session["name"] = request.POST["name"]
 
         return ResponseRedirect(location="/bbs")
